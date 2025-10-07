@@ -71,7 +71,7 @@ class PasswordService:
             return False, error.value
 
         strength_check = True
-        self.length = length
+        self.generator.length = length
         if length > 72:
             print("\n\t WARNING: Password length must not exceed 72 characters for security checks")
             print("\t - pattern matching and frequency checks are disabled\n")
