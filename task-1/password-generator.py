@@ -1,9 +1,15 @@
 import secrets # for generating random characters
 import string # for generating characters
 import zxcvbn # for checking password strength
+from enum import Enum
 
 ACCEPTABLE_STRENGTH = 3
 MAX_STRENGTH_CHECK_ATTEMPTS = 20
+
+class ValidationError(Enum):
+    INVALID_FORMAT = "Invalid format: must be a number"
+    TOO_SHORT = "Too short: minimum length is 4 characters"
+    TOO_LONG = "Too long: maximum length is 256 characters"
 
 class PasswordGenerator:    
     def __init__(self, length: int = 12):
@@ -43,28 +49,36 @@ class PasswordGenerator:
             is_password_strong = True
         
         return password
-    
-    def set_length(self, length: int) -> None:
-        if length < 4:
-            raise ValueError("Password length must be at least 4 character")
-        if length > 256:
-            raise ValueError("Password length must not exceed 256 characters")
-        self.length = length
-
 
 class PasswordService:    
     def __init__(self, generator: PasswordGenerator):
         self.generator = generator
     
-    def generate_password_with_length(self, length_str: str, strength_check: bool) -> tuple[bool, str]:
+    def validate_input(self, length_str: str) -> tuple[bool, int | None, ValidationError | None]:
         try:
             length = int(length_str)
-            self.generator.set_length(length)
-            password = self.generator.generate_password(strength_check)
-            return True, password
-        except ValueError as e:
-            return False, str(e)
+            if length < 4:
+                return False, None, ValidationError.TOO_SHORT
+            if length > 256:
+                return False, None, ValidationError.TOO_LONG
+            return True, length, None
+        except ValueError:
+            return False, None, ValidationError.INVALID_FORMAT
 
+    def generate_password_with_length(self, length_str: str) -> tuple[bool, str]:
+        success, length, error = self.validate_input(length_str)
+        if not success:
+            return False, error.value
+
+        strength_check = True
+        self.length = length
+        if length > 72:
+            print("\n\t WARNING: Password length must not exceed 72 characters for security checks")
+            print("\t - pattern matching and frequency checks are disabled\n")
+            strength_check = False
+        
+        password = self.generator.generate_password(strength_check)
+        return True, password
 
 class PasswordGeneratorUI:
     def __init__(self, service: PasswordService):
@@ -73,14 +87,8 @@ class PasswordGeneratorUI:
     def run(self) -> None:
         print("Welcome to the Password Generator!")
         
-        length_input = input("Enter the length of the password: ")
-        strength_check = True
-        if int(length_input) > 72:
-            print("\n\t WARNING: Password length must not exceed 72 characters for security checks")
-            print("\t - pattern matching and frequency checks are disabled\n")
-            strength_check = False
-        
-        success, result = self.service.generate_password_with_length(length_input, strength_check)
+        length_input = input("Enter the length of the password: ")     
+        success, result = self.service.generate_password_with_length(length_input)
         
         if success:
             print(f"Generated password: {result}")
